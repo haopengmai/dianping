@@ -24,9 +24,9 @@ public class MailUtils {
         //端口号，QQ邮箱端口587
         props.put("mail.smtp.port", "587");
         // 此处填写，写信人的账号
-        props.put("mail.user", email);
+        props.put("mail.user", "1274731114@qq.com");
         // 此处填写16位STMP口令
-        props.put("mail.password", "tXXXXXXXXXfgjb");
+        props.put("mail.password", "riufdudshcaijdbi");
         // 构建授权信息，用于进行SMTP进行身份验证
         Authenticator authenticator = new Authenticator() {
             protected PasswordAuthentication getPasswordAuthentication() {
@@ -47,7 +47,7 @@ public class MailUtils {
         InternetAddress to = new InternetAddress(email);
         message.setRecipient(MimeMessage.RecipientType.TO, to);
         // 设置邮件标题
-        message.setSubject("Kyle's Blog 邮件测试");
+        message.setSubject("验证码");
         // 设置邮件的内容体
         message.setContent("尊敬的用户:你好!\n注册验证码为:" + code + "(有效期为一分钟,请勿告知他人)", "text/html;charset=UTF-8");
         // 最后当然就是发送邮件啦
