@@ -210,8 +210,10 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
         }
         //解决SQL的in不能排序问题，手动指定排序为传入的ids
         String idsStr = StrUtil.join(",");
+
         //5. 根据id查询blog
         List<Blog> blogs = query().in("id", ids).last("ORDER BY FIELD(id," + idsStr + ")").list();
+
         for (Blog blog : blogs) {
             //5.1 查询发布该blog的用户信息
             queryBlogUser(blog);
