@@ -50,15 +50,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     @Override
     public Result sendCode(String phone, HttpSession session) throws MessagingException {
         // 1. 判断是否能够发送验证码(连续输入错误的那些)
-        Double lastSendTime = stringRedisTemplate.opsForZSet().score(SENDCODE_SENDTIME_KEY,phone);
+        Double lastSendTime = stringRedisTemplate.opsForZSet().score(SENDCODE_SENDTIME_KEY, phone);
         if (lastSendTime != null) {
-            if (System.currentTimeMillis() - lastSendTime < 60 * 1000) {
+            if (System.currentTimeMillis() - lastSendTime.longValue() < 60 * 1000) {
                 // 距离上次发送时间不足1分钟，不能发送验证码
                 return Result.fail("距离上次发送时间不足1分钟，请1分钟后重试");
             }
         }
 
-        // 2. 判断该手机号码是否超过发送次数限制
+            // 2. 判断该手机号码是否超过发送次数限制
         Double count = stringRedisTemplate.opsForZSet().score(SENDCODE_SENDTIME_KEY, phone);
         if (count != null && count >= 5) {
             // 5分钟内已经发送了5次，不能发送验证码
@@ -67,25 +67,31 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         }
 
         Double oneLevelLimitTime = stringRedisTemplate.opsForZSet().score(ONE_LEVERLIMIT_KEY + phone, phone);
-        if (oneLevelLimitTime != null && System.currentTimeMillis() - oneLevelLimitTime < 5 * 60 * 1000) {
+        if (oneLevelLimitTime != null && System.currentTimeMillis() - oneLevelLimitTime.longValue() < 5 * 60 * 1000) {
             // 在1级限制时间内，不能发送验证码
             return Result.fail("您需要等5分钟后再请求");
+        } else {
+            // 超过1级限制时间，从限制列表中移除
+            stringRedisTemplate.opsForZSet().remove(ONE_LEVERLIMIT_KEY + phone, phone);
         }
 
         Double twoLevelLimitTime = stringRedisTemplate.opsForZSet().score(TWO_LEVERLIMIT_KEY + phone, phone);
-        if (twoLevelLimitTime != null && System.currentTimeMillis() - twoLevelLimitTime < 20 * 60 * 1000) {
+        if (twoLevelLimitTime != null && System.currentTimeMillis() - twoLevelLimitTime.longValue() < 20 * 60 * 1000) {
             // 在2级限制时间内，不能发送验证码
             return Result.fail("您需要等20分钟后再请求");
+        } else {
+            // 超过2级限制时间，从限制列表中移除
+            stringRedisTemplate.opsForZSet().remove(TWO_LEVERLIMIT_KEY + phone, phone);
         }
 
-        //生成验证码
+          //生成验证码
         String code = MailUtils.achieveCode();
 
-        //将生成的验证码保持到redis
+          //将生成的验证码保持到redis
         stringRedisTemplate.opsForValue().set(LOGIN_CODE_KEY+phone,code,LOGIN_CODE_TTL, TimeUnit.MINUTES);
 
         log.info("发送登录验证码：{}", code);
-        //发送验证码
+          //发送验证码
         MailUtils.sendtoMail(phone, code);
         stringRedisTemplate.opsForZSet().incrementScore(SENDCODE_SENDTIME_KEY, phone, 1);
         return Result.ok();
