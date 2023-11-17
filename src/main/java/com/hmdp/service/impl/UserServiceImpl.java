@@ -49,11 +49,36 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     //发短信
     @Override
     public Result sendCode(String phone, HttpSession session) throws MessagingException {
-        // TODO 发送email验证码并保存验证码
-        if (RegexUtils.isEmailInvalid(phone)) {
-            return Result.fail("邮箱格式不正确");
+        // 1. 判断是否能够发送验证码(连续输入错误的那些)
+        Double lastSendTime = stringRedisTemplate.opsForZSet().score(SENDCODE_SENDTIME_KEY,phone);
+        if (lastSendTime != null) {
+            if (System.currentTimeMillis() - lastSendTime < 60 * 1000) {
+                // 距离上次发送时间不足1分钟，不能发送验证码
+                return Result.fail("距离上次发送时间不足1分钟，请1分钟后重试");
+            }
         }
-        //符合，则生成验证码
+
+        // 2. 判断该手机号码是否超过发送次数限制
+        Double count = stringRedisTemplate.opsForZSet().score(SENDCODE_SENDTIME_KEY, phone);
+        if (count != null && count >= 5) {
+            // 5分钟内已经发送了5次，不能发送验证码
+            stringRedisTemplate.opsForZSet().add(ONE_LEVERLIMIT_KEY + phone, phone, System.currentTimeMillis());
+            return Result.fail("5分钟内已经发送了5次，请5分钟后重试");
+        }
+
+        Double oneLevelLimitTime = stringRedisTemplate.opsForZSet().score(ONE_LEVERLIMIT_KEY + phone, phone);
+        if (oneLevelLimitTime != null && System.currentTimeMillis() - oneLevelLimitTime < 5 * 60 * 1000) {
+            // 在1级限制时间内，不能发送验证码
+            return Result.fail("您需要等5分钟后再请求");
+        }
+
+        Double twoLevelLimitTime = stringRedisTemplate.opsForZSet().score(TWO_LEVERLIMIT_KEY + phone, phone);
+        if (twoLevelLimitTime != null && System.currentTimeMillis() - twoLevelLimitTime < 20 * 60 * 1000) {
+            // 在2级限制时间内，不能发送验证码
+            return Result.fail("您需要等20分钟后再请求");
+        }
+
+        //生成验证码
         String code = MailUtils.achieveCode();
 
         //将生成的验证码保持到redis
@@ -62,6 +87,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         log.info("发送登录验证码：{}", code);
         //发送验证码
         MailUtils.sendtoMail(phone, code);
+        stringRedisTemplate.opsForZSet().incrementScore(SENDCODE_SENDTIME_KEY, phone, 1);
         return Result.ok();
     }
 

@@ -21,5 +21,10 @@ public class RedisConstants {
     public static final String FEED_KEY = "feed:";
     public static final String SHOP_GEO_KEY = "shop:geo:";
     public static final String USER_SIGN_KEY = "sign:";
+    public static final String SENDCODE_SENDTIME_KEY ="sms:sendtime:";
+
+    public static final String ONE_LEVERLIMIT_KEY ="limit:onelevel:";
+
+    public static final String TWO_LEVERLIMIT_KEY ="limit:twolevel:";
 
 }
