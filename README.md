@@ -9,9 +9,11 @@ git clone https://github.com/haopengmai/dianping.git
 ## 前端环境部署
 nginx-1.18.0   启动nginx.exe
 ## 后端环境部署
-在application.yaml文件中，Mysql和Redis的配置需要自行更改
+在application.yaml文件中，Mysql、Redis、RabbitMQ相关的配置需要自行更改
 
 Redis服务器版本不能低于6.2，获取附近的商家信息GEOSEARCH 命令是在 Redis 6.2 版本中引入
+
+RabbitMQ版本为3-management
 
 ## 后端部分功能做了优化
 ### 优化点1:高并发的情境下采用消息队列RabbitMQ来优化秒杀下单，减轻数据库的压力。
