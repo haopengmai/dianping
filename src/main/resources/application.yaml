@@ -20,6 +20,26 @@ spring:
     database: 6
   jackson:
     default-property-inclusion: non_null # JSON处理时忽略非空字段
+  rabbitmq:
+    host: 192.168.88.128
+    username: haopengmai
+    password: 123456
+    virtual-host: /
+    port: 15672
+    listener:
+      simple:
+        concurrency: 10
+        max-concurrency: 10
+        prefetch: 1
+        auto-startup: true
+        default-requeue-rejected: true
+    template:
+      retry:
+        enabled: true
+        initial-interval: 1000ms
+        max-attempts: 3
+        max-interval: 10000ms
+        multiplier: 1
 mybatis-plus:
   type-aliases-package: com.hmdp.entity # 别名扫描包
 logging:
