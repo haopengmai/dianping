@@ -45,57 +45,61 @@ import static com.hmdp.utils.RedisConstants.*;
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IUserService {
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
-
     //发短信
     @Override
     public Result sendCode(String phone, HttpSession session) throws MessagingException {
-        // 1. 判断是否能够发送验证码(连续输入错误的那些)
-        Double lastSendTime = stringRedisTemplate.opsForZSet().score(SENDCODE_SENDTIME_KEY, phone);
-        if (lastSendTime != null) {
-            if (System.currentTimeMillis() - lastSendTime.longValue() < 60 * 1000) {
-                // 距离上次发送时间不足1分钟，不能发送验证码
-                return Result.fail("距离上次发送时间不足1分钟，请1分钟后重试");
-            }
-        }
-
-            // 2. 判断该手机号码是否超过发送次数限制
-        Double count = stringRedisTemplate.opsForZSet().score(SENDCODE_SENDTIME_KEY, phone);
-        if (count != null && count >= 5) {
-            // 5分钟内已经发送了5次，不能发送验证码
-            stringRedisTemplate.opsForZSet().add(ONE_LEVERLIMIT_KEY + phone, phone, System.currentTimeMillis());
-            return Result.fail("5分钟内已经发送了5次，请5分钟后重试");
-        }
-
-        Double oneLevelLimitTime = stringRedisTemplate.opsForZSet().score(ONE_LEVERLIMIT_KEY + phone, phone);
-        if (oneLevelLimitTime != null && System.currentTimeMillis() - oneLevelLimitTime.longValue() < 5 * 60 * 1000) {
-            // 在1级限制时间内，不能发送验证码
+        // 1. 判断是否在一级限制条件内
+        Boolean oneLevelLimit = stringRedisTemplate.opsForSet().isMember(ONE_LEVERLIMIT_KEY + phone, "1");
+        if (oneLevelLimit != null && oneLevelLimit) {
+            // 在一级限制条件内，不能发送验证码
             return Result.fail("您需要等5分钟后再请求");
-        } else {
-            // 超过1级限制时间，从限制列表中移除
-            stringRedisTemplate.opsForZSet().remove(ONE_LEVERLIMIT_KEY + phone, phone);
         }
 
-        Double twoLevelLimitTime = stringRedisTemplate.opsForZSet().score(TWO_LEVERLIMIT_KEY + phone, phone);
-        if (twoLevelLimitTime != null && System.currentTimeMillis() - twoLevelLimitTime.longValue() < 20 * 60 * 1000) {
-            // 在2级限制时间内，不能发送验证码
+// 2. 判断是否在二级限制条件内
+        Boolean twoLevelLimit = stringRedisTemplate.opsForSet().isMember(TWO_LEVERLIMIT_KEY + phone, "1");
+        if (twoLevelLimit != null && twoLevelLimit) {
+            // 在二级限制条件内，不能发送验证码
             return Result.fail("您需要等20分钟后再请求");
-        } else {
-            // 超过2级限制时间，从限制列表中移除
-            stringRedisTemplate.opsForZSet().remove(TWO_LEVERLIMIT_KEY + phone, phone);
+        }
+
+// 3. 检查过去1分钟内发送验证码的次数
+        long oneMinuteAgo = System.currentTimeMillis() - 60 * 1000;
+        long count_oneminute = stringRedisTemplate.opsForZSet().count(SENDCODE_SENDTIME_KEY + phone, oneMinuteAgo, System.currentTimeMillis());
+        if (count_oneminute >= 1) {
+            // 过去1分钟内已经发送了1次，不能再发送验证码
+            return Result.fail("距离上次发送时间不足1分钟，请1分钟后重试");
+        }
+
+        // 4. 检查发送验证码的次数
+        long fiveMinutesAgo = System.currentTimeMillis() - 5 * 60 * 1000;
+        long count_fiveminute = stringRedisTemplate.opsForZSet().count(SENDCODE_SENDTIME_KEY + phone, fiveMinutesAgo, System.currentTimeMillis());
+        if (count_fiveminute % 3 == 2 && count_fiveminute > 5) {
+            // 发送了8, 11, 14, ...次，进入二级限制
+            stringRedisTemplate.opsForSet().add(TWO_LEVERLIMIT_KEY + phone, "1");
+            stringRedisTemplate.expire(TWO_LEVERLIMIT_KEY + phone, 20, TimeUnit.MINUTES);
+            return Result.fail("接下来如需再发送，请等20分钟后再请求");
+        } else if (count_fiveminute == 5) {
+            // 过去5分钟内已经发送了5次，进入一级限制
+            stringRedisTemplate.opsForSet().add(ONE_LEVERLIMIT_KEY + phone, "1");
+            stringRedisTemplate.expire(ONE_LEVERLIMIT_KEY + phone, 5, TimeUnit.MINUTES);
+            return Result.fail("5分钟内已经发送了5次，接下来如需再发送请等待5分钟后重试");
         }
 
           //生成验证码
         String code = MailUtils.achieveCode();
 
-          //将生成的验证码保持到redis
+         //将生成的验证码保持到redis
         stringRedisTemplate.opsForValue().set(LOGIN_CODE_KEY+phone,code,LOGIN_CODE_TTL, TimeUnit.MINUTES);
 
         log.info("发送登录验证码：{}", code);
-          //发送验证码
+         //发送验证码
         MailUtils.sendtoMail(phone, code);
-        stringRedisTemplate.opsForZSet().incrementScore(SENDCODE_SENDTIME_KEY, phone, 1);
+
+        // 更新发送时间和次数
+        stringRedisTemplate.opsForZSet().add(SENDCODE_SENDTIME_KEY + phone, System.currentTimeMillis() + "", System.currentTimeMillis());
+
         return Result.ok();
-    }
+}
 
     //登录注册
     @Override
