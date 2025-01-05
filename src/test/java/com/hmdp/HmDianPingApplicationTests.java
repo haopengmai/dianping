@@ -65,6 +65,6 @@ class HmDianPingApplicationTests {
             }
         }
         Long count = stringRedisTemplate.opsForHyperLogLog().size("HLL");
-        System.out.println("count = " + count);
+        System.out.println("lcy");
     }
 }
