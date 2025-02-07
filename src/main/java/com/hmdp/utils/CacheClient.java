@@ -22,6 +22,7 @@ import static com.hmdp.utils.RedisConstants.LOCK_SHOP_KEY;
 @Component
 public class CacheClient {
     //来自鄢坤的更改
+    //更改2
     @Resource
     private StringRedisTemplate stringRedisTemplate;
     private static final ExecutorService CACHE_REBUILD_EXECUTOR = Executors.newFixedThreadPool(10);
