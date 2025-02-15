@@ -11,8 +11,6 @@ public class HmDianPingApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(HmDianPingApplication.class, args);
-        System.out.println("Idea 修改");
+        System.out.println(1);
     }
-
-
 }
